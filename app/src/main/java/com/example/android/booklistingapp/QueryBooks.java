@@ -23,53 +23,54 @@ import java.util.ArrayList;
 
 public class QueryBooks extends AsyncTask<String, Void, ArrayList<BookObject>> {
 
-        public MainActivity mMainActivity;
+    public MainActivity mMainActivity;
 
-        private final String LOG_TAG = QueryBooks.class.getSimpleName();
+    private final String LOG_TAG = QueryBooks.class.getSimpleName();
 
-        private final Context mContext;
+    private final Context mContext;
 
     public QueryBooks(Context context, MainActivity mainActivity) {
-            mContext = context;
-            mMainActivity = mainActivity;
-        }
+        mContext = context;
+        mMainActivity = mainActivity;
+    }
 
-        /**
-         * Takes the String representing the complete book list in JSON Format and
-         * pull out the data we need to construct the Strings needed for the book list.
-         *
-         * Fortunately parsing is easy:  constructor takes the JSON string and converts it
-         * into an Object hierarchy for us.
-         */
-        private ArrayList<BookObject> getBookDataFromJson(String booksJsonStr)
+    /**
+     * Takes the String representing the complete book list in JSON Format and
+     * pull out the data we need to construct the Strings needed for the book list.
+     * <p>
+     * Fortunately parsing is easy:  constructor takes the JSON string and converts it
+     * into an Object hierarchy for us.
+     */
+    private ArrayList<BookObject> getBookDataFromJson(String booksJsonStr)
             throws JSONException {
 
-            // The bookList to fill with results
-            ArrayList<BookObject> bookList = new ArrayList();
+        // The bookList to fill with results
+        ArrayList<BookObject> bookList = new ArrayList();
 
-            // The key to pass on the JSON Object
-            final String BOOK_ITEMS = "items";
-            final String BOOK_VOLUME_INFO = "volumeInfo";
-            final String BOOK_TITLE = "title";
-            final String BOOK_AUTHOR = "authors";
+        // The key to pass on the JSON Object
+        final String BOOK_ITEMS = "items";
+        final String BOOK_VOLUME_INFO = "volumeInfo";
+        final String BOOK_TITLE = "title";
+        final String BOOK_AUTHOR = "authors";
 
-            try {
-                JSONObject booksJson = new JSONObject(booksJsonStr);
-                JSONArray itemsArray = booksJson.getJSONArray(BOOK_ITEMS);
+        try {
+            JSONObject booksJson = new JSONObject(booksJsonStr);
+            JSONArray itemsArray = booksJson.getJSONArray(BOOK_ITEMS);
 
-                for(int i = 0; i < itemsArray.length(); i++) {
+            for (int i = 0; i < itemsArray.length(); i++) {
 
-                    // These are the values that will be collected.
-                    String title = "";
-                    String authors = "";
+                // These are the values that will be collected.
+                String title = "";
+                String authors = "";
 
-                    // Get the JSON object representing a book
-                    JSONObject bookInfo = itemsArray.getJSONObject(i);
-                    JSONObject volumeInfoJson = bookInfo.getJSONObject(BOOK_VOLUME_INFO);
+                // Get the JSON object representing a book
+                JSONObject bookInfo = itemsArray.getJSONObject(i);
+                JSONObject volumeInfoJson = bookInfo.getJSONObject(BOOK_VOLUME_INFO);
 
-                    title = volumeInfoJson.getString(BOOK_TITLE);
+                title = volumeInfoJson.getString(BOOK_TITLE);
 
-                    JSONArray authorsArray = volumeInfoJson.getJSONArray(BOOK_AUTHOR);
+                JSONArray authorsArray = volumeInfoJson.getJSONArray(BOOK_AUTHOR);
+                if(BOOK_AUTHOR != null && !BOOK_AUTHOR.isEmpty()) {
                     for (int j = 0; j < authorsArray.length(); j++) {
                         if (j == 0) {
                             authors += authorsArray.getString(j);
@@ -77,120 +78,121 @@ public class QueryBooks extends AsyncTask<String, Void, ArrayList<BookObject>> {
                             authors += ", " + authorsArray.getString(j);
                         }
                     }
-
-                    // Add book entry for bookList if not already in bookList
-                    BookObject book = new BookObject(authors, title);
-                    boolean isBookInList = false;
-                    for(BookObject b : bookList) {
-                        if (b.getTitle().equals(title)) {
-                            isBookInList = true;
-                        }
-                    }
-                    if (!isBookInList) {
-                        bookList.add(book);
-                    }
                 }
 
-                Log.d(LOG_TAG, "FetchBooksTask Complete.");
-
-            } catch (JSONException e) {
-                Log.e(LOG_TAG, e.getMessage(), e);
-                e.printStackTrace();
+                // Add book entry for bookList if not already in bookList
+                BookObject book = new BookObject(authors, title);
+                boolean isBookInList = false;
+                for (BookObject b : bookList) {
+                    if (b.getTitle().equals(title)) {
+                        isBookInList = true;
+                    }
+                }
+                if (!isBookInList) {
+                    bookList.add(book);
+                }
             }
 
-            return bookList;
+            Log.d(LOG_TAG, "FetchBooksTask Complete.");
+
+        } catch (JSONException e) {
+            Log.e(LOG_TAG, e.getMessage(), e);
+            e.printStackTrace();
         }
 
-        @Override
-        protected ArrayList<BookObject> doInBackground(String... params) {
+        return bookList;
+    }
 
-            if (params.length == 0) {
-                return null;
-            }
-            String keywordQuery = params[0];
+    @Override
+    protected ArrayList<BookObject> doInBackground(String... params) {
 
-            // These two need to be declared outside the try/catch
-            // so that they can be closed in the finally block.
-            HttpURLConnection urlConnection = null;
-            BufferedReader reader = null;
-
-            // Will contain the raw JSON response as a string.
-            String booksJsonStr = null;
-
-            int numMaxResults = 15;
-            String order = "newest";
-
-            try {
-                // Construct the URL for the Google Books API query
-                // https://developers.google.com/books/docs/v1/getting_started#intro
-                final String GOOGLE_BOOKS_BASE_URL =
-                        "https://www.googleapis.com/books/v1/volumes?";
-                final String QUERY_PARAM = "q";
-                final String MAX_PARAM = "maxResults";
-                final String ORDER_PARAM = "orderBy";
-
-                Uri builtUri = Uri.parse(GOOGLE_BOOKS_BASE_URL).buildUpon()
-                        .appendQueryParameter(QUERY_PARAM, params[0])
-                        .appendQueryParameter(MAX_PARAM, Integer.toString(numMaxResults))
-                        .appendQueryParameter(ORDER_PARAM, order)
-                        .build();
-
-                URL url = new URL(builtUri.toString());
-
-                // Create the request to Google Books API, and open the connection
-                urlConnection = (HttpURLConnection) url.openConnection();
-                urlConnection.setRequestMethod("GET");
-                urlConnection.connect();
-
-                // Read the input stream into a String
-                InputStream inputStream = urlConnection.getInputStream();
-                StringBuffer buffer = new StringBuffer();
-                if (inputStream == null) {
-                    // Nothing to do.
-                    return null;
-                }
-                reader = new BufferedReader(new InputStreamReader(inputStream));
-
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    buffer.append(line + "\n");
-                }
-
-                if (buffer.length() == 0) {
-                    // Stream was empty.  No point in parsing.
-                    return null;
-                }
-                booksJsonStr = buffer.toString();
-                return getBookDataFromJson(booksJsonStr);
-            } catch (IOException e) {
-                Log.e(LOG_TAG, "Error ", e);
-                // If the code didn't successfully get the book data, there's no point in attempting
-                // to parse it.
-            } catch (JSONException e) {
-                Log.e(LOG_TAG, e.getMessage(), e);
-                e.printStackTrace();
-            } finally {
-                if (urlConnection != null) {
-                    urlConnection.disconnect();
-                }
-                if (reader != null) {
-                    try {
-                        reader.close();
-                    } catch (final IOException e) {
-                        Log.e(LOG_TAG, "Error closing stream", e);
-                    }
-                }
-            }
-
-            // In case of error
+        if (params.length == 0) {
             return null;
         }
+        String keywordQuery = params[0];
 
-        @Override
-        protected void onPostExecute(ArrayList<BookObject> result) {
-            if (result != null) {
-                mMainActivity.refreshBookList(result);
+        // These two need to be declared outside the try/catch
+        // so that they can be closed in the finally block.
+        HttpURLConnection urlConnection = null;
+        BufferedReader reader = null;
+
+        // Will contain the raw JSON response as a string.
+        String booksJsonStr = null;
+
+        int numMaxResults = 15;
+        String order = "newest";
+
+        try {
+            // Construct the URL for the Google Books API query
+            // https://developers.google.com/books/docs/v1/getting_started#intro
+            final String GOOGLE_BOOKS_BASE_URL =
+                    "https://www.googleapis.com/books/v1/volumes?";
+            final String QUERY_PARAM = "q";
+            final String MAX_PARAM = "maxResults";
+            final String ORDER_PARAM = "orderBy";
+
+            Uri builtUri = Uri.parse(GOOGLE_BOOKS_BASE_URL).buildUpon()
+                    .appendQueryParameter(QUERY_PARAM, params[0])
+                    .appendQueryParameter(MAX_PARAM, Integer.toString(numMaxResults))
+                    .appendQueryParameter(ORDER_PARAM, order)
+                    .build();
+
+            URL url = new URL(builtUri.toString());
+
+            // Create the request to Google Books API, and open the connection
+            urlConnection = (HttpURLConnection) url.openConnection();
+            urlConnection.setRequestMethod("GET");
+            urlConnection.connect();
+
+            // Read the input stream into a String
+            InputStream inputStream = urlConnection.getInputStream();
+            StringBuffer buffer = new StringBuffer();
+            if (inputStream == null) {
+                // Nothing to do.
+                return null;
+            }
+            reader = new BufferedReader(new InputStreamReader(inputStream));
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                buffer.append(line + "\n");
+            }
+
+            if (buffer.length() == 0) {
+                // Stream was empty.  No point in parsing.
+                return null;
+            }
+            booksJsonStr = buffer.toString();
+            return getBookDataFromJson(booksJsonStr);
+        } catch (IOException e) {
+            Log.e(LOG_TAG, "Error ", e);
+            // If the code didn't successfully get the book data, there's no point in attempting
+            // to parse it.
+        } catch (JSONException e) {
+            Log.e(LOG_TAG, e.getMessage(), e);
+            e.printStackTrace();
+        } finally {
+            if (urlConnection != null) {
+                urlConnection.disconnect();
+            }
+            if (reader != null) {
+                try {
+                    reader.close();
+                } catch (final IOException e) {
+                    Log.e(LOG_TAG, "Error closing stream", e);
+                }
             }
         }
+
+        // In case of error
+        return null;
     }
+
+    @Override
+    protected void onPostExecute(ArrayList<BookObject> result) {
+        if (result != null) {
+            mMainActivity.refreshBookList(result);
+        }
+    }
+}
 
