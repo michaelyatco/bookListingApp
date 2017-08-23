@@ -1,13 +1,19 @@
 package com.example.android.booklistingapp;
 
-import android.support.v7.app.AppCompatActivity;
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
+import android.widget.Toast;
 
 import java.util.ArrayList;
+
+import static com.example.android.booklistingapp.R.layout.activity_main;
 
 /**
  * Created by mjyatco on 8/14/17.
@@ -31,7 +37,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(activity_main);
 
         //create Adapter for book list
         if (savedInstanceState != null) {
@@ -58,14 +64,30 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void searchBooks() {
-        QueryBooks bookListTask = new QueryBooks(this, this);
-        bookListTask.execute(mKeyword);
+    private boolean isNetworkAvailable() {
+        ConnectivityManager connectivityManager
+                = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo activeNetwork = connectivityManager.getActiveNetworkInfo();
+        if (activeNetwork != null) {
+            return activeNetwork.isConnectedOrConnecting();
+        } else {
+            return false;
+        }
+    }
+
+    public void searchBooks() {
+        if (isNetworkAvailable()) {
+            QueryBooks bookListTask = new QueryBooks(this, this);
+            bookListTask.execute(mKeyword);
+        } else {
+            Toast.makeText(MainActivity.this, R.string.error_no_internet,
+                    Toast.LENGTH_SHORT).show();
+        }
     }
 
     public void refreshBookList(ArrayList<BookObject> result) {
         mBookAdapter.clear();
-        for(BookObject book : result) {
+        for (BookObject book : result) {
             mBookAdapter.add(book);
         }
     }
@@ -75,4 +97,5 @@ public class MainActivity extends AppCompatActivity {
         savedInstanceState.putParcelableArrayList(BOOK_LIST_VALUES, books);
         super.onSaveInstanceState(savedInstanceState);
     }
+
 }
