@@ -1,6 +1,5 @@
 # bookListingApp
 
-Udacity's Android Developer Nanodegree program exercise #9
 
 ## Purpose
 
